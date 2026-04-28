@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KSSB Analyzer Pro</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Phosphor Icons (Lucide 대체) -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <!-- Custom Styles -->
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #e2e8f0;
+      border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #cbd5e1;
+    }
+    
+    .custom-markdown-styles h2 { color: #0f172a; }
+    .custom-markdown-styles h3 { color: #3730a3; }
+    .custom-markdown-styles p { margin-bottom: 1rem; }
+    .custom-markdown-styles ul { margin-top: 0.5rem; margin-bottom: 1rem; }
+    .custom-markdown-styles strong { font-weight: 800; color: #0f172a; background-color: #fffbeb; padding: 0 0.25rem; border-radius: 0.25rem; }
+    .custom-markdown-styles li { margin-left: 1.25rem; margin-bottom: 0.375rem; display: list-item; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
+
+  <!-- Navbar -->
+  <nav class="h-14 bg-white border-b border-slate-200 flex items-center px-4 sm:px-8 sticky top-0 z-20">
+    <div class="flex items-center gap-2">
+      <i class="ph ph-trend-up w-5 h-5 text-blue-600 text-xl"></i>
+      <span class="font-bold text-lg tracking-tight">KSSB Analyzer <span class="text-blue-500">Pro</span></span>
+    </div>
+  </nav>
+
+  <main class="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden">
+    
+    <!-- Left: Documents Input Section -->
+    <section id="input-section" class="lg:col-span-4 flex flex-col gap-4">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[calc(100vh-160px)] lg:h-[calc(100vh-140px)]">
+        
+        <!-- Header -->
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 class="font-bold flex items-center gap-2 text-sm">
+            <i class="ph ph-file-text w-4 h-4 text-blue-600 text-lg"></i>
+            분석 자료 (<span id="doc-count-badge">1</span>)
+          </h2>
+          <button id="btn-add-doc" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors" title="새 문서 추가">
+            <i class="ph ph-plus w-5 h-5 text-lg"></i>
+          </button>
+        </div>
+
+        <!-- Upload Zone -->
+        <div class="p-4 bg-slate-50 border-b border-slate-100">
+          <label id="upload-label" class="relative group flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-4 transition-all cursor-pointer bg-white border-slate-200 hover:border-blue-400 hover:bg-blue-50/30">
+            <div id="upload-idle" class="flex flex-col items-center">
+              <i class="ph ph-cloud-arrow-up w-6 h-6 text-slate-400 group-hover:text-blue-500 mb-1 text-2xl"></i>
+              <span class="text-xs font-semibold text-slate-600">여러 파일 동시 업로드</span>
+              <span class="text-[10px] text-slate-400 mt-0.5">PDF, TXT, 이미지 등</span>
+            </div>
+            <div id="upload-loading" class="flex flex-col items-center hidden animate-pulse">
+              <i class="ph ph-spinner w-6 h-6 text-blue-500 animate-spin mb-2 text-2xl"></i>
+              <span class="text-xs font-bold text-blue-600">고속 추출 중...</span>
+            </div>
+            <input type="file" id="file-upload-input" class="hidden" multiple accept="*" />
+          </label>
+        </div>
+
+        <!-- Document List -->
+        <div id="document-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+          <!-- Documents will be rendered here dynamically -->
+        </div>
+
+        <!-- Action Button -->
+        <div class="p-4 border-t border-slate-100">
+          <div id="error-message" class="hidden mb-3 p-2 bg-red-50 text-[10px] text-red-600 rounded-lg flex items-center gap-2">
+            <i class="ph ph-warning-circle w-3 h-3 flex-shrink-0 text-sm"></i>
+            <span id="error-text">에러 메시지</span>
+          </div>
+          <button id="btn-analyze" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:bg-slate-300 shadow-lg shadow-blue-100">
+            <i class="ph ph-lightning w-4 h-4 text-base" id="analyze-icon"></i>
+            <span id="analyze-text">솔루션 중심 통합 분석 실행</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Results Section -->
+    <section id="result-section" class="lg:col-span-8 flex flex-col h-full hidden lg:flex">
+      
+      <!-- Empty State -->
+      <div id="empty-state" class="flex-1 bg-white rounded-2xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400">
+        <i class="ph ph-squares-four w-12 h-12 mb-3 opacity-20 text-5xl"></i>
+        <p class="font-medium text-sm">분석 자료를 업로드하고 분석을 시작하세요.</p>
+        <p class="text-xs mt-1">재무적 관점의 ESG 인사이트를 제공합니다.</p>
+      </div>
+
+      <!-- Result View -->
+      <div id="result-view" class="hidden flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden animate-fadeIn h-[calc(100vh-140px)]">
+        
+        <!-- Tabs -->
+        <div class="bg-slate-50 p-2 flex gap-1 border-b border-slate-200 overflow-x-auto custom-scrollbar flex-shrink-0" id="tab-nav">
+          <button data-tab="report" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 bg-white text-blue-600 shadow-sm border border-slate-200">
+            <i class="ph ph-lightbulb w-3.5 h-3.5 text-base"></i> 개선 솔루션 개요
+          </button>
+          <button data-tab="kssb" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 text-slate-500 hover:bg-slate-200/50">
+            <i class="ph ph-shield-warning w-3.5 h-3.5 text-base"></i> KSSB 진단
+          </button>
+          <button data-tab="swot" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 text-slate-500 hover:bg-slate-200/50">
+            <i class="ph ph-target w-3.5 h-3.5 text-base"></i> SWOT
+          </button>
+          <button data-tab="bsc" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 text-slate-500 hover:bg-slate-200/50">
+            <i class="ph ph-chart-bar w-3.5 h-3.5 text-base"></i> BSC 전략
+          </button>
+        </div>
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-y-auto p-4 lg:p-6 custom-scrollbar relative">
+          
+          <!-- Tab: Report -->
+          <div id="tab-content-report" class="tab-content flex flex-col h-full gap-4 hidden">
+            <div class="flex justify-between items-center bg-amber-50 border border-amber-100 rounded-2xl p-4">
+              <h2 class="text-lg font-bold m-0 text-amber-900 flex items-center gap-2">
+                <i class="ph ph-lightbulb w-5 h-5 text-amber-500 text-xl"></i> 통합 보완 및 솔루션 제안
+              </h2>
+              <button onclick="copyReport()" class="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition-colors shadow-sm">
+                내용 복사
+              </button>
+            </div>
+            <div class="flex-1 p-5 rounded-2xl border border-slate-200 bg-white">
+              <div id="report-html-container" class="prose prose-sm md:prose-base prose-slate max-w-none text-slate-800 leading-relaxed custom-markdown-styles">
+                <!-- Markdown Content rendered here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: KSSB -->
+          <div id="tab-content-kssb" class="tab-content space-y-6 hidden">
+            <div class="p-5 bg-blue-50 border border-blue-100 rounded-2xl">
+              <h3 class="text-blue-800 font-bold mb-2 flex items-center gap-2 text-sm sm:text-base">
+                <i class="ph ph-trend-up w-4 h-4 text-base"></i> 분석 총평
+              </h3>
+              <p id="kssb-summary" class="text-blue-900 text-xs sm:text-sm leading-relaxed"></p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="kssb-cards">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Tab: SWOT -->
+          <div id="tab-content-swot" class="tab-content grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
+             <!-- Rendered via JS -->
+          </div>
+
+          <!-- Tab: BSC -->
+          <div id="tab-content-bsc" class="tab-content space-y-4 hidden">
+             <!-- Rendered via JS -->
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // --- Gemini API 설정 ---
+    const apiKey = "";
+    
+    // --- 상태 관리 ---
+    const state = {
+      documents: [{ id: 'init', name: '보고서 1', content: '' }],
+      isProcessing: false,
+      isExtracting: false,
+      error: null,
+      result: null,
+      activeTab: 'report'
+    };
+
+    // --- 유틸리티 함수 ---
+    const safeText = (val) => {
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'string' || typeof val === 'number') return String(val);
+      if (Array.isArray(val)) return val.map(safeText).join(' / ');
+      if (typeof val === 'object') {
+        return Object.values(val).map(v => typeof v === 'object' ? JSON.stringify(v) : String(v)).join(' - ');
+      }
+      return String(val);
+    };
+
+    const safeArray = (val) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val.map(safeText);
+      if (typeof val === 'string') return [val];
+      if (typeof val === 'object') return Object.values(val).map(safeText);
+      return [];
+    };
+
+    const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const fetchWithRetry = async (url, options, retries = 3, delay = 1000) => {
+      try {
+        const res = await fetch(url, options);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res;
+      } catch (err) {
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, delay));
+          return fetchWithRetry(url, options, retries - 1, delay * 2);
+        }
+        throw err;
+      }
+    };
+
+    // --- DOM 요소 참조 ---
+    const els = {
+      docList: document.getElementById('document-list'),
+      docCount: document.getElementById('doc-count-badge'),
+      btnAddDoc: document.getElementById('btn-add-doc'),
+      fileInput: document.getElementById('file-upload-input'),
+      uploadLabel: document.getElementById('upload-label'),
+      uploadIdle: document.getElementById('upload-idle'),
+      uploadLoading: document.getElementById('upload-loading'),
+      errorMsg: document.getElementById('error-message'),
+      errorText: document.getElementById('error-text'),
+      btnAnalyze: document.getElementById('btn-analyze'),
+      analyzeIcon: document.getElementById('analyze-icon'),
+      analyzeText: document.getElementById('analyze-text'),
+      
+      inputSection: document.getElementById('input-section'),
+      resultSection: document.getElementById('result-section'),
+      emptyState: document.getElementById('empty-state'),
+      resultView: document.getElementById('result-view'),
+      
+      tabNavs: document.querySelectorAll('.tab-btn'),
+      tabContents: document.querySelectorAll('.tab-content')
+    };
+
+    // --- UI 업데이트 함수 ---
+    function updateUI() {
+      // 문서 개수
+      const validDocs = state.documents.filter(d => d.content.trim());
+      els.docCount.textContent = validDocs.length;
+
+      // 에러 메시지
+      if (state.error) {
+        els.errorText.textContent = state.error;
+        els.errorMsg.classList.remove('hidden');
+      } else {
+        els.errorMsg.classList.add('hidden');
+      }
+
+      // 추출 상태
+      if (state.isExtracting) {
+        els.uploadLabel.classList.replace('bg-white', 'bg-blue-50');
+        els.uploadLabel.classList.replace('border-slate-200', 'border-blue-300');
+        els.uploadIdle.classList.add('hidden');
+        els.uploadLoading.classList.remove('hidden');
+        els.fileInput.disabled = true;
+      } else {
+        els.uploadLabel.classList.replace('bg-blue-50', 'bg-white');
+        els.uploadLabel.classList.replace('border-blue-300', 'border-slate-200');
+        els.uploadIdle.classList.remove('hidden');
+        els.uploadLoading.classList.add('hidden');
+        els.fileInput.disabled = false;
+      }
+
+      // 분석 중 상태
+      if (state.isProcessing || state.isExtracting) {
+        els.btnAnalyze.disabled = true;
+        els.btnAnalyze.classList.replace('bg-blue-600', 'bg-slate-300');
+      } else {
+        els.btnAnalyze.disabled = false;
+        els.btnAnalyze.classList.replace('bg-slate-300', 'bg-blue-600');
+      }
+
+      if (state.isProcessing) {
+        els.analyzeIcon.className = "ph ph-spinner w-4 h-4 text-base animate-spin";
+        els.analyzeText.textContent = "보고서 분석 중...";
+      } else {
+        els.analyzeIcon.className = "ph ph-lightning w-4 h-4 text-base";
+        els.analyzeText.textContent = "솔루션 중심 통합 분석 실행";
+      }
+
+      // 모바일 화면 전환용 클래스 제어
+      if (state.result) {
+        els.inputSection.classList.add('hidden', 'lg:flex');
+        els.resultSection.classList.remove('hidden');
+        els.resultSection.classList.add('flex');
+        els.emptyState.classList.add('hidden');
+        els.resultView.classList.remove('hidden');
+      } else {
+        els.inputSection.classList.remove('hidden');
+        els.inputSection.classList.add('flex');
+        els.resultSection.classList.add('hidden', 'lg:flex');
+        els.emptyState.classList.remove('hidden');
+        els.resultView.classList.add('hidden');
+      }
+    }
+
+    function renderDocuments() {
+      els.docList.innerHTML = '';
+      state.documents.forEach((doc) => {
+        const docEl = document.createElement('div');
+        docEl.className = "group border border-slate-200 rounded-xl p-3 bg-white hover:border-blue-200 transition-all shadow-sm";
+        
+        docEl.innerHTML = `
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 flex-1 truncate">
+              <i class="ph ph-file-pdf w-4 h-4 text-emerald-500 text-lg"></i>
+              <input 
+                type="text"
+                class="text-xs font-bold text-slate-700 bg-transparent border-none p-0 focus:outline-none focus:ring-0 w-full"
+                value="${doc.name}"
+                placeholder="문서명 입력..."
+                onchange="updateDocName('${doc.id}', this.value)"
+              />
+            </div>
+            <button 
+              onclick="removeDoc('${doc.id}')"
+              class="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all"
+            >
+              <i class="ph ph-trash w-4 h-4 text-base"></i>
+            </button>
+          </div>
+          <textarea 
+            class="w-full h-24 text-xs p-2 bg-slate-50 border-none rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-200 resize-none custom-scrollbar font-sans"
+            placeholder="내용 입력..."
+            oninput="updateDocContent('${doc.id}', this.value)"
+          >${doc.content}</textarea>
+        `;
+        els.docList.appendChild(docEl);
+      });
+      updateUI();
+    }
+
+    // --- 문서 조작 함수 ---
+    window.updateDocName = (id, name) => {
+      const doc = state.documents.find(d => d.id === id);
+      if (doc) doc.name = name;
+    };
+
+    window.updateDocContent = (id, content) => {
+      const doc = state.documents.find(d => d.id === id);
+      if (doc) doc.content = content;
+      updateUI(); // 버튼 상태 업데이트
+    };
+
+    window.removeDoc = (id) => {
+      state.documents = state.documents.filter(doc => doc.id !== id);
+      if (state.documents.length === 0) {
+        state.documents.push({ id: 'init', name: '보고서 1', content: '' });
+      }
+      renderDocuments();
+    };
+
+    els.btnAddDoc.addEventListener('click', () => {
+      state.documents.push({ id: generateId(), name: `새 문서 ${state.documents.length + 1}`, content: '' });
+      renderDocuments();
+    });
+
+    // --- 파일 업로드 로직 ---
+    els.fileInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      state.isExtracting = true;
+      state.error = null;
+      updateUI();
+
+      try {
+        const extractionPromises = files.map(async (file) => {
+          let content = '';
+          const isText = file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md');
+
+          if (isText) {
+            content = await file.text();
+          } else {
+            content = await fastExtractText(file);
+          }
+
+          return { 
+            id: generateId(), 
+            name: file.name, 
+            content: content, 
+            status: 'success' 
+          };
+        });
+
+        const newDocs = await Promise.all(extractionPromises);
+
+        const filtered = state.documents.filter(d => d.content.trim() !== '' || (d.id === 'init' && d.content === ''));
+        const finalDocs = [...filtered, ...newDocs].filter(d => d.id !== 'init' || d.content !== '');
+        state.documents = finalDocs.length === 0 ? [{ id: 'init', name: '보고서 1', content: '' }] : finalDocs;
+
+      } catch (err) {
+        console.error(err);
+        state.error = "일부 파일의 텍스트 추출에 실패했습니다. 파일 용량이 너무 크거나 형식이 지원되지 않을 수 있습니다.";
+      } finally {
+        state.isExtracting = false;
+        e.target.value = ''; 
+        renderDocuments();
+      }
+    });
+
+    const fastExtractText = async (file) => {
+      const base64Data = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(file);
+      });
+
+      const mimeType = file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+
+      const response = await fetchWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: "추출 지침: 이 문서의 텍스트를 원본 그대로 추출해. 요약은 하지 마." },
+                { inlineData: { mimeType, data: base64Data } }
+              ]
+            }]
+          })
+        }
+      );
+
+      const data = await response.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || "텍스트를 추출할 수 없습니다.";
+    };
+
+    // --- 분석 로직 ---
+    els.btnAnalyze.addEventListener('click', async () => {
+      const validDocs = state.documents.filter(d => d.content.trim());
+      if (validDocs.length === 0) {
+        state.error = '분석할 보고서 내용을 입력하거나 파일을 업로드해주세요.';
+        updateUI();
+        return;
+      }
+
+      state.isProcessing = true;
+      state.error = null;
+      updateUI();
+
+      const combinedText = validDocs
+        .map((doc, idx) => `### 문서 ${idx + 1}: ${doc.name}\n${doc.content}`)
+        .join('\n\n---\n\n');
+
+      const systemPrompt = `
+        전문가 역할: 대한민국 최고의 ESG 재무/회계 컨설턴트.
+        
+        [분석 원칙]
+        1. 재무적 중요성(Financial Materiality) 관점 필수.
+        2. KSSB 제1호, 제2호 기준에 따른 거버넌스, 전략, 위험관리, 지표 및 목표 진단.
+        3. 문서가 여러 개일 경우 각 기업의 공시 수준 상호 비교.
+        
+        [출력 형식: revised_report]
+        - 'revised_report' 필드에는 반드시 분석 결과를 바탕으로 한 **개선 사항 및 구체적인 솔루션**이 포함된 '종합 보완 보고서'를 **개요 형태(Bullet points, Numbering 등)**로 작성하세요.
+        - 서술형 문장보다는 한눈에 파악하기 쉬운 개조식(Outline) 구조를 사용하세요.
+        - 마크다운 문법을 사용하여 계층 구조를 명확히 표현하세요. (#, ##, -, *, 1. 등)
+        - (예시 구조) 
+          ## 1. 경영진 거버넌스 강화 방안
+          * **[문제점]** ...
+          * **[솔루션]** ...
+          ## 2. 재무 전략 연계 ...
+        
+        반드시 JSON 응답 형식의 모든 필드를 텍스트 또는 텍스트 배열로 채워주세요. 절대 필드에 복잡한 객체(Object)를 중첩해서 넣지 마세요.
+      `;
+
+      const schema = {
+        type: "OBJECT",
+        properties: {
+          kssb_evaluation: {
+            type: "OBJECT",
+            properties: {
+              governance: { type: "STRING" },
+              strategy: { type: "STRING" },
+              risk_management: { type: "STRING" },
+              metrics_targets: { type: "STRING" }
+            }
+          },
+          swot: {
+            type: "OBJECT",
+            properties: {
+              strengths: { type: "ARRAY", items: { type: "STRING" } },
+              weaknesses: { type: "ARRAY", items: { type: "STRING" } },
+              opportunities: { type: "ARRAY", items: { type: "STRING" } },
+              threats: { type: "ARRAY", items: { type: "STRING" } }
+            }
+          },
+          bsc: {
+            type: "OBJECT",
+            properties: {
+              financial: { type: "ARRAY", items: { type: "STRING" } },
+              customer: { type: "ARRAY", items: { type: "STRING" } },
+              internal_process: { type: "ARRAY", items: { type: "STRING" } },
+              learning_growth: { type: "ARRAY", items: { type: "STRING" } }
+            }
+          },
+          executive_summary: { type: "STRING" },
+          revised_report: { type: "STRING" }
+        }
+      };
+
+      try {
+        const response = await fetchWithRetry(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: combinedText }] }],
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              generationConfig: { responseMimeType: "application/json", responseSchema: schema }
+            })
+          }
+        );
+
+        const data = await response.json();
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) throw new Error("API 응답이 비어있습니다.");
+        
+        state.result = JSON.parse(rawText);
+        state.activeTab = 'report';
+        
+        renderResult();
+        updateUI();
+        switchTab('report');
+        
+        if (window.innerWidth < 1024) {
+          els.resultSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      } catch (err) {
+        console.error(err);
+        state.error = '분석 도중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+        updateUI();
+      } finally {
+        state.isProcessing = false;
+        updateUI();
+      }
+    });
+
+    // --- 결과 렌더링 함수 ---
+    function renderResult() {
+      if (!state.result) return;
+      const res = state.result;
+
+      // Report Tab
+      let rawReport = safeText(res.revised_report);
+      let htmlReport = rawReport
+        .replace(/^###\s(.*$)/gim, '<h3 class="text-md font-bold mt-5 mb-2 text-indigo-800 flex items-center gap-2"><span class="w-1.5 h-4 bg-indigo-500 rounded-full inline-block"></span>$1</h3>')
+        .replace(/^##\s(.*$)/gim, '<h2 class="text-lg font-bold mt-6 mb-3 text-slate-900 border-b border-slate-100 pb-2">$1</h2>')
+        .replace(/^\*\s(.*$)/gim, '<li class="ml-5 list-disc marker:text-emerald-500 mb-1.5">$1</li>')
+        .replace(/^-\s(.*$)/gim, '<li class="ml-5 list-disc marker:text-slate-400 mb-1.5">$1</li>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 font-extrabold bg-amber-50 px-1 rounded">$1</strong>')
+        .replace(/\[문제점\]/g, '<span class="text-rose-600 font-bold bg-rose-50 px-1.5 py-0.5 rounded text-xs mr-1">[문제점]</span>')
+        .replace(/\[솔루션\]/g, '<span class="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-xs mr-1">[솔루션]</span>');
+      
+      document.getElementById('report-html-container').innerHTML = htmlReport;
+
+      // KSSB Tab
+      document.getElementById('kssb-summary').textContent = safeText(res.executive_summary);
+      
+      const kssbCards = [
+        { title: '거버넌스', text: safeText(res.kssb_evaluation?.governance), colorClass: 'bg-blue-50 border-blue-100 text-blue-900' },
+        { title: '전략', text: safeText(res.kssb_evaluation?.strategy), colorClass: 'bg-indigo-50 border-indigo-100 text-indigo-900' },
+        { title: '위험관리', text: safeText(res.kssb_evaluation?.risk_management), colorClass: 'bg-orange-50 border-orange-100 text-orange-900' },
+        { title: '지표 및 목표', text: safeText(res.kssb_evaluation?.metrics_targets), colorClass: 'bg-emerald-50 border-emerald-100 text-emerald-900' }
+      ];
+      document.getElementById('kssb-cards').innerHTML = kssbCards.map(c => `
+        <div class="p-4 rounded-xl border ${c.colorClass}">
+          <h4 class="font-bold text-[10px] sm:text-xs mb-2 opacity-80 uppercase tracking-tighter">${c.title}</h4>
+          <p class="text-[11px] sm:text-xs leading-relaxed font-medium">${c.text || "분석 내용 없음"}</p>
+        </div>
+      `).join('');
+
+      // SWOT Tab
+      const swots = [
+        { title: 'Strengths', items: safeArray(res.swot?.strengths), colorClass: 'bg-blue-50/50 border-blue-200 text-blue-800' },
+        { title: 'Weaknesses', items: safeArray(res.swot?.weaknesses), colorClass: 'bg-red-50/50 border-red-200 text-red-800' },
+        { title: 'Opportunities', items: safeArray(res.swot?.opportunities), colorClass: 'bg-emerald-50/50 border-emerald-200 text-emerald-800' },
+        { title: 'Threats', items: safeArray(res.swot?.threats), colorClass: 'bg-orange-50/50 border-orange-200 text-orange-800' }
+      ];
+      document.getElementById('tab-content-swot').innerHTML = swots.map(s => `
+        <div class="p-5 rounded-2xl border ${s.colorClass}">
+          <h4 class="font-black text-xs sm:text-sm uppercase tracking-wider mb-4">${s.title}</h4>
+          <ul class="space-y-2">
+            ${s.items.length > 0 ? s.items.map(item => `
+              <li class="text-[11px] sm:text-xs flex items-start gap-2">
+                <span class="opacity-50 mt-1 flex-shrink-0">•</span>
+                <span class="font-medium leading-relaxed">${item}</span>
+              </li>
+            `).join('') : `<li class="text-[11px] text-slate-400 italic">데이터가 없습니다.</li>`}
+          </ul>
+        </div>
+      `).join('');
+
+      // BSC Tab
+      const bscs = [
+        { title: '재무적 관점', items: safeArray(res.bsc?.financial), colorClass: 'border-blue-200 bg-blue-50/30 text-blue-900' },
+        { title: '고객 관점', items: safeArray(res.bsc?.customer), colorClass: 'border-indigo-200 bg-indigo-50/30 text-indigo-900' },
+        { title: '내부 프로세스', items: safeArray(res.bsc?.internal_process), colorClass: 'border-slate-200 bg-slate-50/30 text-slate-900' },
+        { title: '학습 및 성장', items: safeArray(res.bsc?.learning_growth), colorClass: 'border-emerald-200 bg-emerald-50/30 text-emerald-900' }
+      ];
+      document.getElementById('tab-content-bsc').innerHTML = bscs.map(b => `
+        <div class="p-4 rounded-2xl border ${b.colorClass}">
+          <h4 class="font-bold text-xs sm:text-sm mb-3 flex items-center gap-2">
+            <i class="ph ph-check-circle w-4 h-4 opacity-50 text-base"></i> ${b.title}
+          </h4>
+          <ul class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            ${b.items.length > 0 ? b.items.map(item => `
+              <li class="text-[11px] sm:text-xs bg-white/60 p-2 rounded-lg font-medium leading-relaxed border border-slate-100 shadow-sm">
+                ${item}
+              </li>
+            `).join('') : `<li class="text-[11px] text-slate-400 italic col-span-2">전략 내용이 없습니다.</li>`}
+          </ul>
+        </div>
+      `).join('');
+    }
+
+    // --- 탭 전환 로직 ---
+    function switchTab(tabId) {
+      els.tabNavs.forEach(nav => {
+        if (nav.dataset.tab === tabId) {
+          nav.classList.replace('text-slate-500', 'text-blue-600');
+          nav.classList.replace('hover:bg-slate-200/50', 'bg-white');
+          nav.classList.add('shadow-sm', 'border', 'border-slate-200');
+        } else {
+          nav.classList.replace('text-blue-600', 'text-slate-500');
+          nav.classList.replace('bg-white', 'hover:bg-slate-200/50');
+          nav.classList.remove('shadow-sm', 'border', 'border-slate-200');
+        }
+      });
+
+      els.tabContents.forEach(content => {
+        if (content.id === `tab-content-${tabId}`) {
+          content.classList.remove('hidden');
+        } else {
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    els.tabNavs.forEach(nav => {
+      nav.addEventListener('click', () => {
+        switchTab(nav.dataset.tab);
+      });
+    });
+
+    // --- 클립보드 복사 로직 (iframe 제약 우회용 execCommand 사용) ---
+    window.copyReport = () => {
+      if (!state.result || !state.result.revised_report) return;
+      
+      const textToCopy = safeText(state.result.revised_report);
+      const textArea = document.createElement("textarea");
+      textArea.value = textToCopy;
+      
+      // Avoid scrolling to bottom
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.position = "fixed";
+
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        const successful = document.execCommand('copy');
+        if(successful) {
+           alert("내용이 클립보드에 복사되었습니다.");
+        } else {
+           alert("복사에 실패했습니다.");
+        }
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+        alert("이 브라우저 환경에서는 복사를 지원하지 않습니다.");
+      }
+
+      document.body.removeChild(textArea);
+    };
+
+    // --- 초기화 ---
+    renderDocuments();
+
+  </script>
+</body>
+</html>
