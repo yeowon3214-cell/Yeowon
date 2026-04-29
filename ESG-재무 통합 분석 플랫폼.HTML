@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESG-재무 통합 AI 분석 플랫폼</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        
+        /* 인쇄용 최적화 스타일 지정 */
+        @media print {
+            body { 
+                background: white !important; 
+                margin: 0 !important; 
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+            }
+            @page { 
+                size: A4; 
+                margin: 15mm; 
+            }
+            #print-area { 
+                box-shadow: none !important; 
+                border: none !important; 
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            .print-avoid-break, section, table, tr, td, ul, li { 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+            }
+            h2, h3 { 
+                page-break-after: avoid !important; 
+                break-after: avoid !important; 
+            }
+            .print\:hidden { display: none !important; }
+        }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800 pb-20">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-10 print:hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <i data-lucide="bar-chart-3" class="w-7 h-7 text-indigo-600"></i>
+                <h1 class="text-xl font-bold text-slate-900 tracking-tight">ESG-재무 통합 AI 분석 플랫폼</h1>
+            </div>
+            <div class="text-sm text-slate-500 font-medium hidden sm:block">
+                재무/회계 전문가 전용 워크스페이스
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 print:hidden">
+        
+        <!-- 설명 영역 및 분석 대상 설정 -->
+        <div class="mb-8 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">문서 업로드 및 정밀 데이터 추출</h2>
+                    <p class="text-slate-600 text-sm">기업의 회계적 신뢰성(감사/ICFR)과 비재무적 성과(ESG) 간의 정합성을 검증합니다.</p>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-3 bg-slate-50 p-4 rounded-lg border border-slate-200 w-full md:w-auto">
+                    <div class="flex-1">
+                        <label class="flex items-center text-xs font-bold text-slate-500 mb-1.5">
+                            <i data-lucide="building-2" class="w-3.5 h-3.5 mr-1"></i> 분석 대상 기업명
+                        </label>
+                        <input type="text" id="company-name" value="글로벌에코(주)" class="px-3 py-2 border border-slate-300 rounded-md text-sm w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-bold text-indigo-900 bg-white" placeholder="예: 글로벌에코(주)">
+                    </div>
+                    <div class="w-full sm:w-32">
+                        <label class="block text-xs font-bold text-slate-500 mb-1.5">대상 결산 연도</label>
+                        <input type="text" id="fiscal-year" value="2025" class="px-3 py-2 border border-slate-300 rounded-md text-sm w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white" placeholder="예: 2025">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 양방향 업로드 섹션 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            
+            <!-- 왼쪽: 회계감사 & 내부회계 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-slate-50 px-5 py-4 border-b border-slate-200 flex items-center space-x-2">
+                    <i data-lucide="shield-check" class="w-5 h-5 text-blue-600"></i>
+                    <h3 class="font-semibold text-slate-800">회계감사보고서 및 ICFR</h3>
+                </div>
+                <div class="p-5 flex-1 flex flex-col">
+                    <input type="file" id="fin-file-input" accept=".pdf,.docx,.txt" class="hidden" />
+                    
+                    <!-- 업로드 전 -->
+                    <div id="fin-upload-box" class="border-2 border-dashed border-slate-300 rounded-lg p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition-colors h-40">
+                        <i data-lucide="upload" class="w-8 h-8 text-slate-400 mb-3"></i>
+                        <p class="text-sm font-medium text-slate-700">여기를 터치하여 파일 업로드</p>
+                        <p class="text-xs text-slate-500 mt-1">PDF, DOCX, TXT (최대 50MB)</p>
+                    </div>
+
+                    <!-- 추출 중 -->
+                    <div id="fin-extracting-box" class="hidden flex flex-col items-center justify-center h-40 bg-blue-50/50 rounded-lg border border-blue-100">
+                        <i data-lucide="refresh-cw" class="w-8 h-8 text-blue-500 animate-spin mb-3"></i>
+                        <p class="text-sm font-medium text-blue-700">정밀 텍스트 및 지표 추출 중...</p>
+                    </div>
+
+                    <!-- 추출 완료 -->
+                    <div id="fin-result-box" class="hidden flex flex-col h-full">
+                        <div class="flex items-center justify-between bg-blue-50 px-4 py-2 rounded-md mb-4 border border-blue-100">
+                            <div class="flex items-center space-x-2 truncate pr-2">
+                                <i data-lucide="file-text" class="w-4 h-4 text-blue-600 flex-shrink-0"></i>
+                                <span id="fin-file-name" class="text-sm font-medium text-blue-900 truncate"></span>
+                                <span id="fin-file-size" class="text-xs text-blue-500 ml-1"></span>
+                            </div>
+                            <div class="flex items-center space-x-2 flex-shrink-0">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>
+                                <button id="fin-reset-btn" class="p-1 hover:bg-blue-100 rounded-full transition-colors" title="파일 제거">
+                                    <i data-lucide="x" class="w-4 h-4 text-slate-400 hover:text-red-500"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">추출된 텍스트 (편집 가능)</label>
+                            <textarea id="fin-textarea" class="w-full h-48 p-3 border border-slate-200 rounded-md text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-mono"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 오른쪽: 지속가능경영보고서 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-slate-50 px-5 py-4 border-b border-slate-200 flex items-center space-x-2">
+                    <i data-lucide="leaf" class="w-5 h-5 text-emerald-600"></i>
+                    <h3 class="font-semibold text-slate-800">지속가능경영보고서 (ESG)</h3>
+                </div>
+                <div class="p-5 flex-1 flex flex-col">
+                    <input type="file" id="esg-file-input" accept=".pdf,.docx,.txt" class="hidden" />
+                    
+                    <!-- 업로드 전 -->
+                    <div id="esg-upload-box" class="border-2 border-dashed border-slate-300 rounded-lg p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition-colors h-40">
+                        <i data-lucide="upload" class="w-8 h-8 text-slate-400 mb-3"></i>
+                        <p class="text-sm font-medium text-slate-700">여기를 터치하여 파일 업로드</p>
+                        <p class="text-xs text-slate-500 mt-1">PDF, DOCX, TXT (최대 50MB)</p>
+                    </div>
+
+                    <!-- 추출 중 -->
+                    <div id="esg-extracting-box" class="hidden flex flex-col items-center justify-center h-40 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                        <i data-lucide="refresh-cw" class="w-8 h-8 text-emerald-500 animate-spin mb-3"></i>
+                        <p class="text-sm font-medium text-emerald-700">정밀 텍스트 및 지표 추출 중...</p>
+                    </div>
+
+                    <!-- 추출 완료 -->
+                    <div id="esg-result-box" class="hidden flex flex-col h-full">
+                        <div class="flex items-center justify-between bg-emerald-50 px-4 py-2 rounded-md mb-4 border border-emerald-100">
+                            <div class="flex items-center space-x-2 truncate pr-2">
+                                <i data-lucide="file-text" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+                                <span id="esg-file-name" class="text-sm font-medium text-emerald-900 truncate"></span>
+                                <span id="esg-file-size" class="text-xs text-emerald-500 ml-1"></span>
+                            </div>
+                            <div class="flex items-center space-x-2 flex-shrink-0">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>
+                                <button id="esg-reset-btn" class="p-1 hover:bg-emerald-100 rounded-full transition-colors" title="파일 제거">
+                                    <i data-lucide="x" class="w-4 h-4 text-slate-400 hover:text-red-500"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">추출된 텍스트 (편집 가능)</label>
+                            <textarea id="esg-textarea" class="w-full h-48 p-3 border border-slate-200 rounded-md text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none font-mono"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 분석 실행 버튼 -->
+        <div class="flex justify-center mb-12">
+            <button id="run-analysis-btn" disabled class="flex items-center space-x-2 px-8 py-4 rounded-full font-bold text-lg shadow-md transition-all bg-slate-200 text-slate-400 cursor-not-allowed">
+                <i data-lucide="file-search" id="btn-icon-search" class="w-6 h-6"></i>
+                <i data-lucide="refresh-cw" id="btn-icon-spin" class="w-6 h-6 animate-spin hidden"></i>
+                <span id="btn-text">데이터 정합성 및 심층 분석 실행 (BSC/SWOT 포함)</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- 분석 결과 리포트 영역 -->
+    <div id="report-container" class="hidden max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 animate-fade-in-up">
+        
+        <div class="flex justify-between items-end mb-4 print:hidden">
+            <h2 class="text-xl font-bold text-slate-800">분석 결과 보고서</h2>
+            <div class="flex space-x-3">
+                <button id="copy-link-btn" class="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-md text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors">
+                    <i data-lucide="link" id="copy-icon" class="w-4 h-4"></i>
+                    <i data-lucide="check-circle" id="copied-icon" class="w-4 h-4 text-green-500 hidden"></i>
+                    <span id="copy-text">링크 복사</span>
+                </button>
+                <button id="download-pdf-btn" class="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-bold shadow-sm hover:bg-indigo-700 transition-colors">
+                    <i data-lucide="download" id="pdf-icon" class="w-4 h-4"></i>
+                    <i data-lucide="refresh-cw" id="pdf-spin" class="w-4 h-4 animate-spin hidden"></i>
+                    <span id="pdf-text">PDF 다운로드</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="print-area" class="bg-white shadow-2xl mx-auto max-w-[800px] print:shadow-none print:max-w-none print:w-full">
+            <div class="p-8 md:p-14 text-slate-900 leading-relaxed font-serif">
+                
+                <!-- 리포트 헤더 -->
+                <div class="border-b-4 border-slate-900 pb-6 mb-8 text-center print-avoid-break">
+                    <p class="text-sm font-bold text-indigo-700 tracking-widest mb-3">INTEGRATED ANALYSIS REPORT</p>
+                    <h1 class="text-3xl font-black mb-6">재무 및 비재무(ESG) 심층 진단 보고서</h1>
+                    <div class="inline-block bg-indigo-50 border border-indigo-200 rounded-full px-8 py-2.5 shadow-sm">
+                        <h2 id="report-company-title" class="text-2xl font-extrabold text-indigo-900 tracking-wide"></h2>
+                    </div>
+                    <div class="flex justify-between text-sm text-slate-600 mt-8 px-4 font-medium">
+                        <span id="report-date"></span>
+                        <span id="report-fiscal-info"></span>
+                    </div>
+                </div>
+
+                <!-- 1. 종합 평가 -->
+                <section class="mb-10 print-avoid-break">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <span class="bg-indigo-600 w-2 h-6 block"></span>
+                        <h2 class="text-xl font-bold">1. 경영진단 종합 평가 (Executive Summary)</h2>
+                    </div>
+                    <div class="bg-slate-50 p-5 rounded-sm border border-slate-200">
+                        <p class="text-justify mb-3">
+                            본 보고서는 <strong id="report-company-text"></strong>의 『회계감사보고서(ICFR 포함)』와 『지속가능경영보고서』 데이터를 상호 대조하여 추출한 <strong>정합성 및 통합 가치 창출 능력</strong>을 진단합니다. 전반적으로 비재무적 ESG 선언이 재무제표 상의 자본/비용 지출로 정확히 뒷받침되고 있어 <strong>그린워싱(Greenwashing) 리스크가 매우 낮습니다.</strong>
+                        </p>
+                        <p class="text-justify">
+                            특히 환경(E) 부문의 친환경 설비 투자액(450억 원)이 당기 자본적지출(CAPEX) 계정에 정상 반영되어 내부통제 승인을 득한 점은 긍정적입니다. 향후 ESG 데이터 산출 통제망(ITGC) 보완을 통해 재무-비재무 통합 공시 체계를 선제적으로 구축할 수 있는 잠재력을 지녔습니다.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- 2. BSC 관점 통합 분석 -->
+                <section class="mb-10 print-avoid-break">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <span class="bg-emerald-600 w-2 h-6 block"></span>
+                        <h2 class="text-xl font-bold flex items-center">
+                            <i data-lucide="target" class="w-5 h-5 mr-2 text-emerald-700"></i>
+                            2. BSC (균형성과표) 기반 ESG-재무 연계 평가
+                        </h2>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="border border-slate-200 rounded p-4">
+                            <h3 class="font-bold text-slate-800 mb-2 border-b pb-1">📈 재무적 관점 (Financial)</h3>
+                            <ul class="text-sm space-y-1 text-slate-700 list-disc list-inside">
+                                <li>적정 감사의견으로 안정적 자금 조달 기반 확보</li>
+                                <li>녹색 채권(Green Bond) 발행을 통한 이자 비용 절감 여력 증대</li>
+                                <li>부채비율(114.2%) 안정화로 추가 친환경 CAPEX 집행 가능</li>
+                            </ul>
+                        </div>
+                        <div class="border border-slate-200 rounded p-4">
+                            <h3 class="font-bold text-slate-800 mb-2 border-b pb-1">🤝 고객 관점 (Customer)</h3>
+                            <ul class="text-sm space-y-1 text-slate-700 list-disc list-inside">
+                                <li>친환경 설비 기반 저탄소 제품 공급으로 고객 만족도 상승</li>
+                                <li>공급망 ESG 리스크 평가 도입으로 B2B 고객사의 신뢰도 확보</li>
+                                <li>친환경 브랜드 프리미엄 형성 가능성</li>
+                            </ul>
+                        </div>
+                        <div class="border border-slate-200 rounded p-4">
+                            <h3 class="font-bold text-slate-800 mb-2 border-b pb-1">⚙️ 내부프로세스 관점 (Internal)</h3>
+                            <ul class="text-sm space-y-1 text-slate-700 list-disc list-inside">
+                                <li>ESG 위원회 신설에 따른 거버넌스(G) 의사결정 체계 확립</li>
+                                <li>환경 투자 집행과 ICFR 적정성 승인 프로세스 연계 완료</li>
+                                <li>ITGC 일부 미흡 사항은 데이터 무결성을 위해 즉각 개선 필요</li>
+                            </ul>
+                        </div>
+                        <div class="border border-slate-200 rounded p-4">
+                            <h3 class="font-bold text-slate-800 mb-2 border-b pb-1">🌱 학습 및 성장 (Learning)</h3>
+                            <ul class="text-sm space-y-1 text-slate-700 list-disc list-inside">
+                                <li>임직원 윤리경영 서약 100% 달성으로 규제 준수 문화 정착</li>
+                                <li>여성 임원 30% 달성으로 조직 다양성 및 혁신 역량 제고</li>
+                                <li>안전보건 예산 15% 증액을 통한 무재해 사업장 유지 역량</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. 통합 SWOT 분석 -->
+                <section class="mb-10 print-avoid-break">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <span class="bg-blue-600 w-2 h-6 block"></span>
+                        <h2 class="text-xl font-bold flex items-center">
+                            <i data-lucide="grid" class="w-5 h-5 mr-2 text-blue-700"></i>
+                            3. ESG-재무 통합 SWOT 분석
+                        </h2>
+                    </div>
+                    <table class="w-full text-sm border-collapse border border-slate-300">
+                        <tbody>
+                            <tr>
+                                <td class="w-1/2 p-4 border border-slate-300 bg-blue-50/50 align-top">
+                                    <h3 class="font-bold text-blue-800 mb-2 text-base">강점 (Strengths)</h3>
+                                    <ul class="list-disc list-inside space-y-1 text-slate-700">
+                                        <li>안정적 재무구조와 높은 이익 창출력 (영업이익 1,800억)</li>
+                                        <li>실제 CAPEX가 수반된 진정성 있는 환경(E) 투자</li>
+                                        <li>강력한 거버넌스(G) 및 투명한 내부통제(ICFR) 체계</li>
+                                    </ul>
+                                </td>
+                                <td class="w-1/2 p-4 border border-slate-300 bg-red-50/50 align-top">
+                                    <h3 class="font-bold text-red-800 mb-2 text-base">약점 (Weaknesses)</h3>
+                                    <ul class="list-disc list-inside space-y-1 text-slate-700">
+                                        <li>IT 시스템(ERP 등) 접근 통제 및 ESG 데이터 취합 자동화 부족</li>
+                                        <li>온실가스 배출 감소(8.3%) 외 밸류체인(Scope 3) 관리 내역 부재</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="w-1/2 p-4 border border-slate-300 bg-emerald-50/50 align-top">
+                                    <h3 class="font-bold text-emerald-800 mb-2 text-base">기회 (Opportunities)</h3>
+                                    <ul class="list-disc list-inside space-y-1 text-slate-700">
+                                        <li>탄소배출권 거래제 강화에 따른 배출권 잉여분 수익 창출 기대</li>
+                                        <li>글로벌 기업의 공급망 ESG 요구 증가에 선제적 대응 가능</li>
+                                    </ul>
+                                </td>
+                                <td class="w-1/2 p-4 border border-slate-300 bg-amber-50/50 align-top">
+                                    <h3 class="font-bold text-amber-800 mb-2 text-base">위협 (Threats)</h3>
+                                    <ul class="list-disc list-inside space-y-1 text-slate-700">
+                                        <li>의무 공시(ISSB 등) 법제화에 따른 데이터 검증 비용 증가</li>
+                                        <li>ITGC 취약점 방치 시 ESG 데이터에 대한 제3자 인증 실패 리스크</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- 4. 신사업 창출 및 개선사항 -->
+                <section class="mb-10 print-avoid-break">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <span class="bg-amber-500 w-2 h-6 block"></span>
+                        <h2 class="text-xl font-bold flex items-center">
+                            <i data-lucide="trending-up" class="w-5 h-5 mr-2 text-amber-700"></i>
+                            4. 전략적 제언: 신사업 창출 및 경영 개선사항
+                        </h2>
+                    </div>
+                    
+                    <div class="space-y-5">
+                        <div class="bg-white border-l-4 border-amber-500 p-4 shadow-sm">
+                            <h3 class="font-bold text-amber-900 mb-2 flex items-center">
+                                <i data-lucide="lightbulb" class="w-4 h-4 mr-1 text-amber-600"></i> 신사업 창출 전략 (New Business)
+                            </h3>
+                            <ul class="list-disc list-inside text-sm text-slate-700 space-y-2">
+                                <li><strong>탄소배출권(KAU) 연계 수익 모델화:</strong> 기존 친환경 설비 투자(450억 원)로 달성한 온실가스 감축분(8.3%)을 활용, 잉여 배출권 판매를 통한 비영업수익 창출.</li>
+                                <li><strong>친환경 B2B 소재/부품 시장 확대:</strong> 성공적인 탄소 저감 공정 노하우를 패키지화하여, 프리미엄 제품군(Eco-Premium) 단가 인상 및 신규 계약 추진.</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-white border-l-4 border-red-500 p-4 shadow-sm">
+                            <h3 class="font-bold text-red-900 mb-2 flex items-center">
+                                <i data-lucide="alert-triangle" class="w-4 h-4 mr-1 text-red-600"></i> 즉각 개선 요구사항 (Improvements)
+                            </h3>
+                            <ul class="list-disc list-inside text-sm text-slate-700 space-y-2">
+                                <li><strong>ESG 데이터 시스템 접근통제(ITGC) 강화:</strong> 내부회계 지적사항인 ERP 권한 관리를 즉각 시정. ESG 성과가 수기로 집계되지 않도록 전사 IT 통제에 편입.</li>
+                                <li><strong>Scope 3 배출량 산출 체계 도입:</strong> 향후 의무 공시 규제에 대비하여 협력사를 포함한 Scope 3 배출량 측정 지표 및 연계 재무 예산을 사업계획에 반영.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 꼬리말 -->
+                <div class="mt-12 pt-6 border-t border-slate-300 text-center text-xs text-slate-500 print-avoid-break">
+                    <p>본 보고서는 AI 파싱 기술을 활용해 추출된 문서 데이터를 교차 분석하여 작성되었습니다.</p>
+                    <p>실제 투자, 대출 심사 및 감사 의견 표명의 최종 근거로 활용 시 전문가의 직접 검토가 필요합니다.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Lucide 아이콘 초기화
+        lucide.createIcons();
+
+        // 상태 변수
+        let finFileReady = false;
+        let esgFileReady = false;
+
+        // Mock 데이터 생성 함수
+        const getMockFinText = () => `[AI 정밀 추출 결과: 회계감사보고서 & ICFR]
+✓ 처리 현황: 총 124페이지 분석 완료 (신뢰도: 99.2%)
+✓ 키워드 매칭: CAPEX, ITGC, 계속기업, 부채비율
+
+【 주요 재무 지표 (P. 12) 】
+- 자산총계: 1,500,320 백만원 / 부채총계: 800,150 백만원
+- 부채비율: 114.2% (전년 대비 2.1%p 감소)
+- 매출액: 2,100,500 백만원 / 영업이익: 180,400 백만원
+
+【 감사의견 (P. 3) 】
+- 의견: 적정 (Unqualified)
+- 계속기업 관련 불확실성: 해당사항 없음
+
+【 내부회계관리제도(ICFR) (P. 105) 】
+- 종합평가: 중요한 취약점(Material Weakness) 미발견
+- 권고사항: IT 일반통제(ITGC) 내 전사적 자원관리(ERP) 시스템의 외부 접근 권한 주기적 갱신 절차 미흡
+- 특정 검토사항: 당기 친환경 설비 관련 자본적지출(CAPEX) 450억 원의 이사회 승인 및 집행 절차 적정성 확인 완료.`;
+
+        const getMockEsgText = (year) => `[AI 정밀 추출 결과: ${year} 지속가능경영보고서(ESG)]
+✓ 처리 현황: 총 86페이지 분석 완료 (신뢰도: 98.7%)
+✓ 키워드 매칭: Net-Zero, Scope 1·2, 무재해, ESG위원회
+
+【 환경 (E) - P. 22 】
+- 목표: 2050 탄소중립(Net-Zero) 달성 및 RE100 가입 추진
+- 성과: Scope 1, 2 온실가스 배출량 전년 대비 8.3% 감축
+- 재무연계: 고효율/친환경 공정 설비 전환을 위해 당기 450억 원 규모의 녹색 투자 집행.
+
+【 사회 (S) - P. 45 】
+- 성과: 공급망 전반의 ESG 리스크 평가 프로세스 최초 도입. 
+- 성과: 주요 사업장 무재해 2년 연속 달성 및 안전보건 예산 15% 증액.
+
+【 지배구조 (G) - P. 60 】
+- 성과: 이사회 산하 'ESG 위원회' 신설 완료. 
+- 성과: 여성 등기임원 비율 30% 초과 달성.
+- 통제: 윤리경영 실천 서약 전 임직원 100% 완료.`;
+
+        // DOM 요소 가져오기
+        const companyNameInput = document.getElementById('company-name');
+        const fiscalYearInput = document.getElementById('fiscal-year');
+        
+        const finUploadBox = document.getElementById('fin-upload-box');
+        const finExtractingBox = document.getElementById('fin-extracting-box');
+        const finResultBox = document.getElementById('fin-result-box');
+        const finFileInput = document.getElementById('fin-file-input');
+        const finFileName = document.getElementById('fin-file-name');
+        const finFileSize = document.getElementById('fin-file-size');
+        const finTextarea = document.getElementById('fin-textarea');
+        const finResetBtn = document.getElementById('fin-reset-btn');
+
+        const esgUploadBox = document.getElementById('esg-upload-box');
+        const esgExtractingBox = document.getElementById('esg-extracting-box');
+        const esgResultBox = document.getElementById('esg-result-box');
+        const esgFileInput = document.getElementById('esg-file-input');
+        const esgFileName = document.getElementById('esg-file-name');
+        const esgFileSize = document.getElementById('esg-file-size');
+        const esgTextarea = document.getElementById('esg-textarea');
+        const esgResetBtn = document.getElementById('esg-reset-btn');
+
+        const runAnalysisBtn = document.getElementById('run-analysis-btn');
+        const btnIconSearch = document.getElementById('btn-icon-search');
+        const btnIconSpin = document.getElementById('btn-icon-spin');
+        const btnText = document.getElementById('btn-text');
+
+        const reportContainer = document.getElementById('report-container');
+
+        // 버튼 상태 업데이트 로직
+        const updateAnalysisBtnState = () => {
+            if (finFileReady && esgFileReady) {
+                runAnalysisBtn.disabled = false;
+                runAnalysisBtn.classList.remove('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                runAnalysisBtn.classList.add('bg-indigo-600', 'text-white', 'hover:bg-indigo-700', 'hover:shadow-lg', 'hover:-translate-y-0.5');
+            } else {
+                runAnalysisBtn.disabled = true;
+                runAnalysisBtn.classList.add('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                runAnalysisBtn.classList.remove('bg-indigo-600', 'text-white', 'hover:bg-indigo-700', 'hover:shadow-lg', 'hover:-translate-y-0.5');
+            }
+        };
+
+        // 재무 파일 업로드 처리
+        finUploadBox.addEventListener('click', () => finFileInput.click());
+        finFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            finUploadBox.classList.add('hidden');
+            finExtractingBox.classList.remove('hidden');
+
+            const handleResult = (text) => {
+                finExtractingBox.classList.add('hidden');
+                finResultBox.classList.remove('hidden');
+                finFileName.textContent = file.name;
+                finFileSize.textContent = `(${(file.size / 1024 / 1024).toFixed(2)}MB)`;
+                finTextarea.value = text;
+                finFileReady = true;
+                updateAnalysisBtnState();
+            };
+
+            if (file.name.toLowerCase().endsWith('.txt')) {
+                const reader = new FileReader();
+                reader.onload = (event) => handleResult(event.target.result);
+                reader.readAsText(file);
+            } else {
+                setTimeout(() => handleResult(getMockFinText()), 1500);
+            }
+        });
+
+        // ESG 파일 업로드 처리
+        esgUploadBox.addEventListener('click', () => esgFileInput.click());
+        esgFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            esgUploadBox.classList.add('hidden');
+            esgExtractingBox.classList.remove('hidden');
+
+            const handleResult = (text) => {
+                esgExtractingBox.classList.add('hidden');
+                esgResultBox.classList.remove('hidden');
+                esgFileName.textContent = file.name;
+                esgFileSize.textContent = `(${(file.size / 1024 / 1024).toFixed(2)}MB)`;
+                esgTextarea.value = text;
+                esgFileReady = true;
+                updateAnalysisBtnState();
+            };
+
+            const year = fiscalYearInput.value || '2025';
+            
+            if (file.name.toLowerCase().endsWith('.txt')) {
+                const reader = new FileReader();
+                reader.onload = (event) => handleResult(event.target.result);
+                reader.readAsText(file);
+            } else {
+                setTimeout(() => handleResult(getMockEsgText(year)), 1500);
+            }
+        });
+
+        // 초기화 버튼 처리
+        finResetBtn.addEventListener('click', () => {
+            finFileInput.value = '';
+            finResultBox.classList.add('hidden');
+            finUploadBox.classList.remove('hidden');
+            finTextarea.value = '';
+            finFileReady = false;
+            reportContainer.classList.add('hidden');
+            updateAnalysisBtnState();
+        });
+
+        esgResetBtn.addEventListener('click', () => {
+            esgFileInput.value = '';
+            esgResultBox.classList.add('hidden');
+            esgUploadBox.classList.remove('hidden');
+            esgTextarea.value = '';
+            esgFileReady = false;
+            reportContainer.classList.add('hidden');
+            updateAnalysisBtnState();
+        });
+
+        // 분석 실행
+        runAnalysisBtn.addEventListener('click', () => {
+            if (!finTextarea.value || !esgTextarea.value) {
+                alert("두 문서의 텍스트가 모두 추출되어야 분석이 가능합니다.");
+                return;
+            }
+
+            // 로딩 상태 UI
+            runAnalysisBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            runAnalysisBtn.classList.add('bg-indigo-500', 'cursor-wait');
+            btnIconSearch.classList.add('hidden');
+            btnIconSpin.classList.remove('hidden');
+            btnText.textContent = "심층 통합 분석 중...";
+            reportContainer.classList.add('hidden');
+
+            setTimeout(() => {
+                // 리포트 데이터 바인딩
+                document.getElementById('report-company-title').textContent = companyNameInput.value;
+                document.getElementById('report-company-text').textContent = companyNameInput.value;
+                document.getElementById('report-fiscal-info').textContent = `분석 대상: ${fiscalYearInput.value} FY 결산 기준`;
+                
+                const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                document.getElementById('report-date').textContent = `작성일: ${today}`;
+
+                // 원래 상태 복구 및 결과 보여주기
+                runAnalysisBtn.classList.remove('bg-indigo-500', 'cursor-wait');
+                runAnalysisBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                btnIconSpin.classList.add('hidden');
+                btnIconSearch.classList.remove('hidden');
+                btnText.textContent = "데이터 정합성 및 심층 분석 실행 (BSC/SWOT 포함)";
+                
+                reportContainer.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    reportContainer.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+            }, 2500);
+        });
+
+        // 링크 복사
+        document.getElementById('copy-link-btn').addEventListener('click', () => {
+            const url = window.location.href;
+            const textArea = document.createElement("textarea");
+            textArea.value = url;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                document.getElementById('copy-icon').classList.add('hidden');
+                document.getElementById('copied-icon').classList.remove('hidden');
+                const textSpan = document.getElementById('copy-text');
+                textSpan.textContent = "복사 완료!";
+                textSpan.classList.add("text-green-600");
+
+                setTimeout(() => {
+                    document.getElementById('copy-icon').classList.remove('hidden');
+                    document.getElementById('copied-icon').classList.add('hidden');
+                    textSpan.textContent = "링크 복사";
+                    textSpan.classList.remove("text-green-600");
+                }, 2000);
+            } catch (err) {
+                alert('링크 복사에 실패했습니다.');
+            }
+            document.body.removeChild(textArea);
+        });
+
+        // PDF 다운로드
+        document.getElementById('download-pdf-btn').addEventListener('click', () => {
+            const btn = document.getElementById('download-pdf-btn');
+            const icon = document.getElementById('pdf-icon');
+            const spin = document.getElementById('pdf-spin');
+            const textSpan = document.getElementById('pdf-text');
+            const element = document.getElementById('print-area');
+            const companyName = companyNameInput.value || '기업';
+
+            // 버튼 상태 변경
+            btn.disabled = true;
+            btn.classList.add('bg-indigo-400', 'cursor-wait');
+            btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            icon.classList.add('hidden');
+            spin.classList.remove('hidden');
+            textSpan.textContent = "PDF 생성 중...";
+
+            const resetBtn = () => {
+                btn.disabled = false;
+                btn.classList.remove('bg-indigo-400', 'cursor-wait');
+                btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                spin.classList.add('hidden');
+                icon.classList.remove('hidden');
+                textSpan.textContent = "PDF 다운로드";
+            };
+
+            const opt = {
+                margin:       [15, 10, 15, 10],
+                filename:     `${companyName}_ESG_재무_심층진단보고서.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['css', 'legacy'] }
+            };
+
+            try {
+                window.html2pdf().set(opt).from(element).save().then(() => {
+                    resetBtn();
+                }).catch((err) => {
+                    console.error(err);
+                    alert("PDF 생성 중 오류가 발생했습니다. 브라우저 인쇄 기능을 실행합니다.");
+                    resetBtn();
+                    window.print();
+                });
+            } catch(e) {
+                resetBtn();
+                window.print();
+            }
+        });
+
+    </script>
+</body>
+</html>
