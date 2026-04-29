@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>교육과정 AI 분석기</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* 스크롤바 숨김 처리 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 기본 폰트 설정 */
+    body { font-family: 'Pretendard', 'Noto Sans KR', sans-serif; background-color: #F8FAFC; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    // 외부 라이브러리(lucide-react) 종속성을 없애기 위한 자체 아이콘 컴포넌트
+    const Icon = ({ name, className }) => {
+      const icons = {
+        Presentation: <><rect width="20" height="14" x="2" y="3" rx="2" /><path d="M8 21h8" /><path d="M12 17v4" /></>,
+        FileSearch: <><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M4.268 21a2 2 0 0 0 1.727 1H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3" /><path d="m9 18-1.5-1.5" /><circle cx="5" cy="14" r="3" /></>,
+        Upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></>,
+        FileText: <><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" /></>,
+        Trash2: <><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></>,
+        Layers: <><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 12 12 17 22 12" /><polyline points="2 17 12 22 22 17" /></>,
+        AlertCircle: <><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></>,
+        Sparkles: <><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></>,
+        Loader2: <><path d="M21 12a9 9 0 1 1-6.219-8.56" /></>,
+        Target: <><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></>,
+        TrendingUp: <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></>,
+        GraduationCap: <><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 9 3 12 0v-5" /></>,
+        Lightbulb: <><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5" /><path d="M9 18h6" /><path d="M10 22h4" /></>,
+        BarChart: <><line x1="12" x2="12" y1="20" y2="10" /><line x1="18" x2="18" y1="20" y2="4" /><line x1="6" x2="6" y1="20" y2="14" /></>
+      };
+
+      return (
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="24" height="24" viewBox="0 0 24 24" 
+          fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+          className={className}
+        >
+          {icons[name]}
+        </svg>
+      );
+    };
+
+    // API Key는 환경에서 할당됩니다.
+    const apiKey = ""; 
+
+    function App() {
+      const [existingFiles, setExistingFiles] = useState([]);
+      const [newFiles, setNewFiles] = useState([]);
+      const [isAnalyzing, setIsAnalyzing] = useState(false);
+      const [result, setResult] = useState(null); 
+      const [currentSlide, setCurrentSlide] = useState(1);
+      const [error, setError] = useState("");
+
+      const existingFileInputRef = useRef(null);
+      const newFileInputRef = useRef(null);
+
+      const MAX_FILES = 5;
+
+      useEffect(() => {
+        if (error) {
+          const timer = setTimeout(() => setError(""), 8000);
+          return () => clearTimeout(timer);
+        }
+      }, [error]);
+
+      const handleFileUpload = (e, setFiles, currentFiles) => {
+        const uploadedFiles = Array.from(e.target.files);
+        
+        if (currentFiles.length + uploadedFiles.length > MAX_FILES) {
+          setError(`각 항목당 최대 ${MAX_FILES}개의 파일만 업로드할 수 있습니다.`);
+          e.target.value = null;
+          return;
+        }
+
+        uploadedFiles.forEach(file => {
+          const isPdf = file.type === 'application/pdf';
+          const reader = new FileReader();
+
+          reader.onload = (event) => {
+            const rawContent = event.target.result;
+            let processedContent = "";
+            let base64Data = null;
+
+            if (isPdf) {
+              base64Data = rawContent.split(',')[1];
+            } else {
+              processedContent = rawContent.length > 30000 ? rawContent.substring(0, 30000) : rawContent;
+            }
+
+            setFiles(prev => [...prev, {
+              id: crypto.randomUUID(),
+              name: file.name,
+              type: file.type || 'application/octet-stream',
+              isPdf: isPdf,
+              size: (file.size / 1024).toFixed(1) + ' KB',
+              content: isPdf ? base64Data : processedContent
+            }]);
+          };
+          
+          if (isPdf) {
+            reader.readAsDataURL(file);
+          } else {
+            reader.readAsText(file);
+          }
+        });
+        
+        setError("");
+        e.target.value = null;
+      };
+
+      const removeFile = (id, setFiles) => {
+        setFiles(prev => prev.filter(file => file.id !== id));
+      };
+
+      const fetchGemini = async (payload, retries = 3) => {
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        
+        for (let i = 0; i < retries; i++) {
+          try {
+            const response = await fetch(apiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+
+            if (response.status === 401) {
+              throw new Error("인증 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+            }
+
+            if (!response.ok) {
+              const errData = await response.json().catch(() => ({}));
+              throw new Error(errData.error?.message || `서버 응답 오류 (${response.status})`);
+            }
+
+            return await response.json();
+          } catch (err) {
+            if (i === retries - 1) throw err;
+            await new Promise(res => setTimeout(res, 1000 * Math.pow(2, i)));
+          }
+        }
+      };
+
+      const handleAnalyze = async () => {
+        if (existingFiles.length === 0 || newFiles.length === 0) {
+          setError("기존 교육자료와 최신 참고 자료를 각각 최소 1개 이상 업로드해주세요.");
+          return;
+        }
+
+        setIsAnalyzing(true);
+        setError("");
+        setResult(null);
+        setCurrentSlide(1);
+
+        const parts = [
+          { text: `당신은 대한민국 최고의 교육과정 설계 전문가입니다. 
+제공된 파일들(기존 교육 자료 및 최신 트렌드 자료)만을 철저히 분석하여 교육과정 고도화 리포트를 작성하세요.
+
+**분석 지침**:
+1. 외부 검색을 금지하며, 오직 업로드된 파일의 데이터에만 근거하십시오.
+2. 결과물은 반드시 아래의 JSON 형식으로 5개의 슬라이드 내용을 구성하십시오.
+
+JSON 구조:
+{
+  "slide1": { "title": "기존 교육과정 진단 및 한계", "points": ["포인트1", "포인트2", "포인트3", "포인트4"] },
+  "slide2": { "title": "고도화 방향성 및 핵심 전략", "points": ["전략1", "전략2", "전략3", "전략4"] },
+  "slide3": { "title": "신규 교육 모듈 설계안", "points": ["모듈1", "모듈2", "모듈3", "모듈4"] },
+  "slide4": { "title": "혁신 교수법 및 도구 활용", "points": ["방법1", "방법2", "방법3", "방법4"] },
+  "slide5": { "title": "기대 효과 및 성과 관리(KPI)", "points": ["효과1", "효과2", "성과지표1", "성과지표2"] }
+}\n\n` }
+        ];
+
+        parts.push({ text: "### [기존 교육 자료]\n" });
+        existingFiles.forEach(f => {
+          if (f.isPdf) parts.push({ inlineData: { mimeType: "application/pdf", data: f.content } });
+          else parts.push({ text: `파일명: ${f.name}\n내용: ${f.content}\n` });
+        });
+
+        parts.push({ text: "\n### [최신 트렌드/참고 자료]\n" });
+        newFiles.forEach(f => {
+          if (f.isPdf) parts.push({ inlineData: { mimeType: "application/pdf", data: f.content } });
+          else parts.push({ text: `파일명: ${f.name}\n내용: ${f.content}\n` });
+        });
+
+        try {
+          const payload = { contents: [{ role: "user", parts: parts }] };
+          const data = await fetchGemini(payload);
+          let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (rawText) {
+            rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+            const parsed = JSON.parse(rawText);
+            setResult(parsed);
+          }
+        } catch (err) {
+          console.error("Analysis Error:", err);
+          setError(`분석 실패: ${err.message}`);
+        } finally {
+          setIsAnalyzing(false);
+        }
+      };
+
+      const getSlideIcon = (index) => {
+        switch(index) {
+          case 1: return <Icon name="Target" className="w-6 h-6 md:w-8 md:h-8" />;
+          case 2: return <Icon name="TrendingUp" className="w-6 h-6 md:w-8 md:h-8" />;
+          case 3: return <Icon name="GraduationCap" className="w-6 h-6 md:w-8 md:h-8" />;
+          case 4: return <Icon name="Lightbulb" className="w-6 h-6 md:w-8 md:h-8" />;
+          case 5: return <Icon name="BarChart" className="w-6 h-6 md:w-8 md:h-8" />;
+          default: return <Icon name="Presentation" className="w-6 h-6 md:w-8 md:h-8" />;
+        }
+      };
+
+      const getSlideColor = (index) => {
+        const colors = ["bg-indigo-600", "bg-blue-600", "bg-emerald-600", "bg-amber-500", "bg-rose-600"];
+        return colors[index - 1] || "bg-slate-900";
+      };
+
+      return (
+        <div className="min-h-screen text-slate-900 p-4 md:p-8 lg:p-10">
+          <div className="max-w-6xl mx-auto space-y-8 md:space-y-12">
+            
+            {/* Header */}
+            <header className="flex flex-col items-center text-center space-y-3 md:space-y-4 pt-4">
+              <div className="bg-white p-4 md:p-5 rounded-2xl md:rounded-[2rem] shadow-lg border border-slate-100">
+                <Icon name="Presentation" className="w-8 h-8 md:w-10 md:h-10 text-indigo-600" />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                  Curriculum <span className="text-indigo-600">Upgrade</span> 5-Step
+                </h1>
+                <p className="text-sm md:text-base text-slate-500 font-bold mt-2 px-4">문서 기반의 고도화된 교육 설계 자동화 시스템</p>
+                <div className="mt-4 px-6 py-2 bg-indigo-50 rounded-full inline-block border border-indigo-100">
+                  <p className="text-xs md:text-sm text-indigo-600 font-medium break-keep">
+                    업로드된 기존 교육 자료와 최신 트렌드 문서를 AI가 교차 분석하여, 실무에 바로 활용할 수 있는 5단계 맞춤형 커리큘럼 개선 리포트를 자동 생성해 줍니다.
+                  </p>
+                </div>
+              </div>
+            </header>
+
+            {/* Upload Sections - Stacks on mobile */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+              <div className="bg-white rounded-3xl md:rounded-[2.5rem] p-6 md:p-8 shadow-sm border border-slate-200">
+                <div className="flex items-center justify-between mb-5 md:mb-6">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <Icon name="FileSearch" className="w-5 h-5 md:w-6 md:h-6 text-indigo-500" />
+                    <h2 className="text-lg md:text-xl font-black text-slate-800">기존 교육자료</h2>
+                  </div>
+                  <button onClick={() => existingFiles.length < MAX_FILES && existingFileInputRef.current.click()} className="p-2.5 md:p-3 bg-indigo-50 text-indigo-600 rounded-xl md:rounded-2xl hover:bg-indigo-600 hover:text-white transition-all">
+                    <Icon name="Upload" className="w-4 h-4 md:w-5 md:h-5" />
+                  </button>
+                </div>
+                <input type="file" multiple ref={existingFileInputRef} className="hidden" accept=".txt,.md,.pdf" onChange={(e) => handleFileUpload(e, setExistingFiles, existingFiles)} />
+                <div className="space-y-2 min-h-[120px] md:min-h-[160px]">
+                  {existingFiles.map(file => (
+                    <div key={file.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="flex items-center gap-2 text-xs md:text-sm font-bold truncate pr-4">
+                        <Icon name="FileText" className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                        <span className="truncate">{file.name}</span>
+                      </span>
+                      <button onClick={() => removeFile(file.id, setExistingFiles)} className="text-slate-300 hover:text-red-500 flex-shrink-0"><Icon name="Trash2" className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                  {existingFiles.length === 0 && <div className="h-full min-h-[120px] flex items-center justify-center text-slate-300 text-xs font-bold border-2 border-dashed border-slate-100 rounded-xl">자료 없음</div>}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl md:rounded-[2.5rem] p-6 md:p-8 shadow-sm border border-slate-200">
+                <div className="flex items-center justify-between mb-5 md:mb-6">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <Icon name="Layers" className="w-5 h-5 md:w-6 md:h-6 text-emerald-500" />
+                    <h2 className="text-lg md:text-xl font-black text-slate-800">최신 트렌드 자료</h2>
+                  </div>
+                  <button onClick={() => newFiles.length < MAX_FILES && newFileInputRef.current.click()} className="p-2.5 md:p-3 bg-emerald-50 text-emerald-600 rounded-xl md:rounded-2xl hover:bg-emerald-500 hover:text-white transition-all">
+                    <Icon name="Upload" className="w-4 h-4 md:w-5 md:h-5" />
+                  </button>
+                </div>
+                <input type="file" multiple ref={newFileInputRef} className="hidden" accept=".txt,.md,.pdf" onChange={(e) => handleFileUpload(e, setNewFiles, newFiles)} />
+                <div className="space-y-2 min-h-[120px] md:min-h-[160px]">
+                  {newFiles.map(file => (
+                    <div key={file.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="flex items-center gap-2 text-xs md:text-sm font-bold truncate pr-4">
+                         <Icon name="FileText" className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                         <span className="truncate">{file.name}</span>
+                      </span>
+                      <button onClick={() => removeFile(file.id, setNewFiles)} className="text-slate-300 hover:text-red-500 flex-shrink-0"><Icon name="Trash2" className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                  {newFiles.length === 0 && <div className="h-full min-h-[120px] flex items-center justify-center text-slate-300 text-xs font-bold border-2 border-dashed border-slate-100 rounded-xl">자료 없음</div>}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Button - Touch friendly sizing */}
+            <div className="flex flex-col items-center">
+              {error && <div className="mb-6 px-4 md:px-6 py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold border border-red-100 flex items-center gap-2 max-w-md text-center"><Icon name="AlertCircle" className="w-5 h-5 flex-shrink-0" />{error}</div>}
+              
+              <button onClick={handleAnalyze} disabled={isAnalyzing} className={`w-full max-w-sm md:w-auto flex items-center justify-center gap-3 md:gap-4 px-8 py-4 md:px-10 md:py-5 rounded-[1.5rem] md:rounded-[2rem] text-base md:text-lg font-black text-white shadow-xl transition-all ${isAnalyzing ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-900 hover:bg-black hover:-translate-y-1'}`}>
+                {isAnalyzing ? <><Icon name="Loader2" className="w-5 h-5 md:w-6 md:h-6 animate-spin"/> 분석 중...</> : <><Icon name="Sparkles" className="w-5 h-5 md:w-6 md:h-6" /> 커리큘럼 분석 실행</>}
+              </button>
+            </div>
+
+            {/* Results */}
+            {result && (
+              <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-10 duration-700 pb-10 md:pb-20">
+                {/* Pagination Tabs - Wrapping on small screens */}
+                <div className="flex flex-wrap justify-center gap-2">
+                  {[1, 2, 3, 4, 5].map(num => (
+                    <button 
+                      key={num} 
+                      onClick={() => setCurrentSlide(num)}
+                      className={`px-4 py-2 md:px-5 md:py-2.5 rounded-xl font-black text-xs md:text-sm transition-all ${currentSlide === num ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200 hover:border-slate-400'}`}
+                    >
+                      STEP 0{num}
+                    </button>
+                  ))}
+                </div>
+
+                {/* B5 Container - Responsive Aspect Ratio */}
+                <div className="max-w-5xl mx-auto w-full">
+                  <div className="bg-white rounded-3xl md:rounded-[3rem] shadow-2xl border border-slate-200 flex flex-col relative group overflow-hidden md:aspect-[1.41/1] min-h-[500px]">
+                    {/* Decorative background */}
+                    <div className={`absolute top-0 right-0 w-48 h-48 md:w-80 md:h-80 rounded-full blur-[60px] md:blur-[100px] opacity-20 -mr-10 -mt-10 md:-mr-20 md:-mt-20 ${getSlideColor(currentSlide)} pointer-events-none`} />
+                    
+                    {/* Slide Content Area */}
+                    <div className="flex-1 p-6 sm:p-8 md:p-14 lg:p-16 flex flex-col relative overflow-hidden">
+                      {/* Slide Header - Responsive stacking/spacing */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6 mb-6 md:mb-10">
+                        <div className={`p-3 md:p-4 rounded-xl md:rounded-2xl ${getSlideColor(currentSlide)} text-white shadow-lg flex-shrink-0`}>
+                          {getSlideIcon(currentSlide)}
+                        </div>
+                        <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 leading-tight">
+                          {result[`slide${currentSlide}`].title}
+                        </h3>
+                      </div>
+                      
+                      {/* Points List */}
+                      <div className="flex-1 overflow-y-auto no-scrollbar md:pr-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+                          {result[`slide${currentSlide}`].points.map((point, i) => (
+                            <div key={i} className="flex items-start gap-3 md:gap-4 p-4 md:p-6 bg-slate-50/70 rounded-2xl md:rounded-3xl border border-slate-100 hover:bg-white hover:shadow-lg transition-all duration-300">
+                              <div className={`w-6 h-6 md:w-8 md:h-8 flex-shrink-0 rounded-lg flex items-center justify-center text-xs md:text-sm font-black text-white ${getSlideColor(currentSlide)} opacity-80 mt-0.5`}>
+                                {i + 1}
+                              </div>
+                              <p className="text-sm md:text-base lg:text-lg font-bold text-slate-700 leading-relaxed md:leading-snug break-keep">{point}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer Bar - Responsive Layout */}
+                    <div className="p-4 md:p-8 bg-slate-900 text-white flex flex-col sm:flex-row justify-between items-center px-6 md:px-12 gap-3 sm:gap-0">
+                      <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
+                        <span className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] opacity-50 mb-1">Advanced Education Framework</span>
+                        <span className="text-[10px] md:text-[11px] font-bold text-slate-400">Step 0{currentSlide} - Strategic Implementation</span>
+                      </div>
+                      <div className="flex items-center gap-4 md:gap-6">
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map(i => (
+                            <div key={i} className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${currentSlide === i ? 'bg-white' : 'bg-white/20'}`} />
+                          ))}
+                        </div>
+                        <span className="text-xl md:text-2xl font-black italic tracking-tighter">0{currentSlide}<span className="opacity-30">/05</span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
