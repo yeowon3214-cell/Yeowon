@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam AI Guard Pro - 지능형 문항 검수 솔루션</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        body { font-family: 'Inter', 'Noto Sans KR', sans-serif; }
+        [x-cloak] { display: none !important; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        @media print {
+            .no-print { display: none !important; }
+            #printable { width: 100%; margin: 0; padding: 0; border: none; display: block !important; }
+            .page-break { page-break-before: always; }
+        }
+    </style>
+
+    <script>
+        // Alpine.js 초기화 이전에 컴포넌트 데이터를 등록합니다.
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('examApp', () => ({
+                activeTab: 'upload',
+                mobileMenuOpen: false,
+                questionFile: null,
+                standardFile: null,
+                isZip: false,
+                isAnalyzing: false,
+                analysisStep: '',
+                analysisResult: null,
+                selectedIdx: 0,
+                filterAttention: false,
+
+                init() {
+                    // Lucide 아이콘 생성
+                    this.$nextTick(() => {
+                        if (window.lucide) {
+                            window.lucide.createIcons();
+                        }
+                    });
+                },
+
+                handleFile(e, type) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    if (type === 'question') {
+                        this.questionFile = file;
+                        this.isZip = file.name.endsWith('.zip');
+                    } else {
+                        this.standardFile = file;
+                    }
+                },
+
+                startAnalysis() {
+                    this.isAnalyzing = true;
+                    const steps = ["구조 분석 중...", "데이터 추출 중...", "통계 엔진 가동...", "보고서 생성 중..."];
+                    let stepIdx = 0;
+                    
+                    const timer = setInterval(() => {
+                        this.analysisStep = steps[stepIdx];
+                        stepIdx++;
+                        if (stepIdx === steps.length) {
+                            clearInterval(timer);
+                            this.finalize();
+                        }
+                    }, 800);
+                },
+
+                finalize() {
+                    const questions = this.generateMock(100);
+                    this.analysisResult = {
+                        reportId: "AIG-" + Math.random().toString(36).substr(2, 7).toUpperCase(),
+                        date: new Date().toLocaleDateString('ko-KR'),
+                        questions: questions
+                    };
+                    this.isAnalyzing = false;
+                    this.activeTab = 'result';
+                    this.$nextTick(() => { 
+                        if (window.lucide) window.lucide.createIcons(); 
+                    });
+                },
+
+                generateMock(count) {
+                    const templates = [
+                        { s: "소프트웨어 설계", q: "응집도(Cohesion)가 가장 높은 단계는?", img: "https://placehold.co/400x200/4f46e5/ffffff?text=Cohesion", opt: ["기능적", "시간적", "논리적", "우연적"] },
+                        { s: "데이터베이스", q: "다음 SQL의 결과값은?", code: "SELECT count(*) FROM users WHERE status='active';", opt: ["10", "15", "20", "0"] }
+                    ];
+                    return Array.from({ length: count }).map((_, i) => {
+                        const t = templates[i % templates.length];
+                        const disc = (Math.random() * 1.4 + 0.3).toFixed(2);
+                        const isWarn = parseFloat(disc) < 0.7;
+                        return {
+                            id: i + 1,
+                            title: `문항 ${String(i+1).padStart(3, '0')} - ${t.s}`,
+                            questionText: t.q,
+                            ocrText: `문제 ${i+1}. ${t.q}\n\n1) ${t.opt[0]}\n2) ${t.opt[1]}\n3) ${t.opt[2]}\n4) ${t.opt[3]}`,
+                            code: t.code || null,
+                            imageUrl: t.img || null,
+                            stats: { difficulty: (Math.random() * 0.6 + 0.2).toFixed(2), discrimination: disc },
+                            strategyType: isWarn ? 'warning' : 'good',
+                            discriminationStrategy: isWarn ? "변별력이 낮습니다. 오답 매력도를 높이세요." : "품질이 우수합니다.",
+                            alignment: 92
+                        };
+                    });
+                },
+
+                filteredQuestions() {
+                    if (!this.analysisResult) return [];
+                    return this.filterAttention 
+                        ? this.analysisResult.questions.filter(q => q.strategyType === 'warning')
+                        : this.analysisResult.questions;
+                },
+
+                selectedQ() {
+                    if (!this.analysisResult) return null;
+                    return this.analysisResult.questions[this.selectedIdx];
+                },
+
+                selectQuestion(id) {
+                    this.selectedIdx = this.analysisResult.questions.findIndex(q => q.id === id);
+                    this.$nextTick(() => { 
+                        if (window.lucide) window.lucide.createIcons(); 
+                    });
+                },
+
+                saveAsImage() {
+                    const el = document.getElementById('printable');
+                    if (!window.html2canvas) return;
+                    window.html2canvas(el, { scale: 2, useCORS: true }).then(canvas => {
+                        const link = document.createElement('a');
+                        link.download = `Report_${this.analysisResult.reportId}.png`;
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                    });
+                },
+
+                downloadWord() {
+                    const content = document.getElementById('printable').innerHTML;
+                    const blob = new Blob(['\ufeff', content], { type: 'application/msword' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `Report_${this.analysisResult.reportId}.doc`;
+                    link.click();
+                }
+            }));
+        });
+    </script>
+    <!-- Alpine.js (반드시 defer 속성을 사용하여 다른 스크립트 로드 후에 실행되도록 합니다) -->
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-[#F8FAFC] text-slate-900 selection:bg-indigo-100" x-data="examApp" x-cloak>
+
+    <!-- Header -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-indigo-600 p-2 rounded-xl shadow-md">
+                        <i data-lucide="shield-check" class="text-white w-6 h-6 sm:w-7 sm:h-7"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg sm:text-xl font-black tracking-tighter text-slate-800">Exam AI Guard <span class="text-indigo-600">Pro</span></h1>
+                        <p class="hidden sm:block text-xs font-medium text-slate-500 mt-0.5 tracking-tight">대규모 시험 문항의 품질을 AI로 정밀 분석하여 개선 가이드를 제공하는 지능형 검수 솔루션입니다.</p>
+                    </div>
+                </div>
+
+                <!-- Desktop Nav -->
+                <div class="hidden md:block">
+                    <nav class="flex gap-2 bg-slate-100 p-1.5 rounded-xl">
+                        <button @click="activeTab = 'upload'" :class="activeTab === 'upload' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'" class="px-4 py-2 rounded-lg text-sm font-bold transition-all">1. 파일 업로드</button>
+                        <button @click="activeTab = 'result'" :disabled="!analysisResult" :class="activeTab === 'result' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 disabled:opacity-30'" class="px-4 py-2 rounded-lg text-sm font-bold transition-all">2. 분석 센터</button>
+                        <button @click="activeTab = 'report'" :disabled="!analysisResult" :class="activeTab === 'report' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 disabled:opacity-30'" class="px-4 py-2 rounded-lg text-sm font-bold transition-all">3. 최종 보고서</button>
+                    </nav>
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <button class="md:hidden p-2 text-slate-600 bg-slate-100 rounded-lg" @click="mobileMenuOpen = !mobileMenuOpen">
+                    <i x-show="!mobileMenuOpen" data-lucide="menu"></i>
+                    <i x-show="mobileMenuOpen" data-lucide="x"></i>
+                </button>
+            </div>
+            <!-- Mobile Menu -->
+            <div x-show="mobileMenuOpen" x-transition class="md:hidden mt-3 p-4 bg-white border-t border-slate-100 flex flex-col gap-2">
+                <button @click="activeTab = 'upload'; mobileMenuOpen = false" class="w-full text-left py-2 font-bold text-slate-700">1. 파일 업로드</button>
+                <button @click="activeTab = 'result'; mobileMenuOpen = false" :disabled="!analysisResult" class="w-full text-left py-2 font-bold text-slate-700 disabled:opacity-30">2. 분석 센터</button>
+                <button @click="activeTab = 'report'; mobileMenuOpen = false" :disabled="!analysisResult" class="w-full text-left py-2 font-bold text-slate-700 disabled:opacity-30">3. 최종 보고서</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Summary -->
+    <div class="no-print bg-indigo-50 border-b border-indigo-100 px-4 py-2 text-[10px] sm:text-xs font-bold text-indigo-700 text-center">
+        Exam AI Guard Pro는 대규모 문항 품질을 AI로 분석하고 이미지와 코드가 포함된 보고서를 추출합니다.
+    </div>
+
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 overflow-hidden">
+        
+        <!-- Tab: Upload -->
+        <template x-if="activeTab === 'upload'">
+            <div class="max-w-2xl mx-auto text-center mt-8 sm:mt-12">
+                <h2 class="text-2xl sm:text-4xl font-black mb-4">대규모 문항 일괄 검증</h2>
+                <p class="text-slate-500 mb-10">100문항 이상의 시험지를 한 번에 분석하고 고품질 리포트를 생성하세요.</p>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+                    <div @click="$refs.qInput.click()" class="p-8 bg-white border-2 border-dashed rounded-[32px] transition-all hover:border-indigo-400 cursor-pointer" :class="questionFile ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200'">
+                        <input type="file" x-ref="qInput" class="hidden" @change="handleFile($event, 'question')">
+                        <i data-lucide="archive" class="mx-auto mb-4 w-12 h-12" :class="questionFile ? 'text-indigo-600' : 'text-slate-300'"></i>
+                        <p class="font-bold text-sm" x-text="questionFile ? questionFile.name : '문항 업로드 (ZIP/PDF)'"></p>
+                    </div>
+                    <div @click="$refs.sInput.click()" class="p-8 bg-white border-2 border-dashed rounded-[32px] transition-all hover:border-emerald-400 cursor-pointer" :class="standardFile ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'">
+                        <input type="file" x-ref="sInput" class="hidden" @change="handleFile($event, 'standard')">
+                        <i data-lucide="book-open" class="mx-auto mb-4 w-12 h-12" :class="standardFile ? 'text-emerald-600' : 'text-slate-300'"></i>
+                        <p class="font-bold text-sm" x-text="standardFile ? standardFile.name : '기준서 업로드 (PDF)'"></p>
+                    </div>
+                </div>
+
+                <button @click="startAnalysis" :disabled="!questionFile || !standardFile || isAnalyzing" class="w-full sm:w-auto px-12 py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-indigo-600 transition-all disabled:opacity-30 flex items-center justify-center gap-3 mx-auto">
+                    <i x-show="isAnalyzing" data-lucide="refresh-ccw" class="animate-spin"></i>
+                    <i x-show="!isAnalyzing" data-lucide="brain-circuit"></i>
+                    <span x-text="isAnalyzing ? analysisStep : 'AI 100문항 정밀 분석 시작'"></span>
+                </button>
+            </div>
+        </template>
+
+        <!-- Tab: Result Center -->
+        <template x-if="activeTab === 'result' && analysisResult">
+            <div class="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-200px)] no-print">
+                <!-- Question List -->
+                <div class="w-full lg:w-1/3 bg-white border border-slate-200 rounded-[32px] flex flex-col overflow-hidden shadow-sm h-[400px] lg:h-full">
+                    <div class="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                        <h3 class="font-black text-sm flex items-center gap-2"><i data-lucide="layers" class="text-indigo-600 w-4 h-4"></i> 문항 탐색기</h3>
+                        <button @click="filterAttention = !filterAttention; selectedIdx = 0" :class="filterAttention ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-500'" class="p-2 rounded-lg"><i data-lucide="filter" class="w-4 h-4"></i></button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+                        <template x-for="(q, index) in filteredQuestions()" :key="q.id">
+                            <button @click="selectQuestion(q.id)" :class="selectedQ() && selectedQ().id === q.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white border-transparent hover:border-slate-200'" class="w-full text-left p-4 rounded-2xl border transition-all flex items-center justify-between">
+                                <div class="min-w-0 pr-4">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span :class="selectedQ() && selectedQ().id === q.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'" class="text-[10px] font-black px-1.5 py-0.5 rounded">Q<span x-text="q.id"></span></span>
+                                        <p class="text-sm font-bold truncate" x-text="q.title.split(' - ')[1]"></p>
+                                    </div>
+                                    <p class="text-[11px] truncate opacity-60" x-text="q.questionText"></p>
+                                </div>
+                                <i x-show="q.strategyType === 'warning'" data-lucide="alert-triangle" :class="selectedQ() && selectedQ().id === q.id ? 'text-white' : 'text-amber-500'" class="w-4 h-4"></i>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Detail View -->
+                <div class="w-full lg:w-2/3 flex flex-col gap-6 overflow-y-auto custom-scrollbar lg:pr-2" x-show="selectedQ()">
+                    <!-- Solution Banner -->
+                    <div :class="selectedQ().strategyType === 'warning' ? 'bg-amber-50 border-amber-200 shadow-amber-100' : 'bg-emerald-50 border-emerald-200 shadow-emerald-100'" class="p-6 rounded-[32px] border flex gap-5 shadow-xl">
+                        <div :class="selectedQ().strategyType === 'warning' ? 'bg-amber-500' : 'bg-emerald-500'" class="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0">
+                            <i data-lucide="trending-up"></i>
+                        </div>
+                        <div>
+                            <h3 :class="selectedQ().strategyType === 'warning' ? 'text-amber-900' : 'text-emerald-900'" class="text-lg font-black mb-1 uppercase">AI 변별력 가이드</h3>
+                            <p class="text-sm font-bold opacity-80 leading-relaxed" x-text="selectedQ().discriminationStrategy"></p>
+                        </div>
+                    </div>
+
+                    <!-- Content Card -->
+                    <div class="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <p class="text-[10px] font-black text-indigo-600 uppercase mb-1">Question Insight</p>
+                                <h4 class="text-xl font-black text-slate-800 tracking-tight" x-text="selectedQ().title"></h4>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] font-bold text-slate-400 uppercase">Match Score</p>
+                                <p class="text-xl font-black text-indigo-600"><span x-text="selectedQ().alignment"></span>%</p>
+                            </div>
+                        </div>
+
+                        <div class="p-6 bg-slate-50 rounded-3xl border border-slate-100 text-sm leading-relaxed text-slate-700 mb-6">
+                            <div class="whitespace-pre-wrap mb-6 font-medium" x-text="selectedQ().ocrText"></div>
+                            
+                            <template x-if="selectedQ().imageUrl">
+                                <div class="mt-4 border border-slate-200 p-2 bg-white inline-block rounded-2xl shadow-sm">
+                                    <img :src="selectedQ().imageUrl" class="max-w-full h-auto rounded-lg">
+                                </div>
+                            </template>
+
+                            <template x-if="selectedQ().code">
+                                <pre class="mt-4 p-4 bg-[#0F172A] text-indigo-300 rounded-2xl font-mono text-xs overflow-x-auto whitespace-pre-wrap"><code x-text="selectedQ().code"></code></pre>
+                            </template>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Discrimination (a)</p>
+                                <p :class="selectedQ().stats.discrimination < 0.8 ? 'text-amber-500' : 'text-emerald-500'" class="text-2xl font-black" x-text="selectedQ().stats.discrimination"></p>
+                            </div>
+                            <div class="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
+                                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Difficulty (b)</p>
+                                <p class="text-2xl font-black text-slate-800" x-text="selectedQ().stats.difficulty"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Tab: Report -->
+        <template x-if="activeTab === 'report' && analysisResult">
+            <div class="max-w-4xl mx-auto pb-20">
+                <div class="flex flex-col sm:flex-row justify-end gap-3 mb-6 no-print">
+                    <button @click="window.print()" class="bg-white border border-slate-300 px-6 py-3 rounded-2xl text-sm font-black flex items-center gap-2 hover:bg-slate-50 transition-all"><i data-lucide="printer"></i> PDF 인쇄</button>
+                    <button @click="saveAsImage()" class="bg-emerald-600 text-white px-6 py-3 rounded-2xl text-sm font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg"><i data-lucide="image"></i> PNG 이미지 저장</button>
+                    <button @click="downloadWord()" class="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-sm font-black flex items-center gap-2 hover:bg-indigo-700 shadow-lg"><i data-lucide="file-down"></i> Word 저장</button>
+                </div>
+
+                <div id="printable" class="bg-white p-10 sm:p-20 shadow-2xl border border-slate-100 rounded-sm min-h-[297mm]">
+                    <div class="flex justify-between items-end border-b-8 border-slate-900 pb-10 mb-12">
+                        <div>
+                            <h1 class="text-4xl sm:text-6xl font-black text-slate-900 tracking-tighter mb-4 italic uppercase">AI Guard Report</h1>
+                            <p class="text-slate-400 font-black text-xs uppercase tracking-[0.3em]">Automated Large-scale Item Quality Check</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Serial Number</p>
+                            <p class="text-xl font-black text-indigo-600" x-text="analysisResult.reportId"></p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-8 mb-16">
+                        <div class="bg-slate-50 p-8 rounded-3xl border border-slate-100 text-center">
+                            <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Total Items</p>
+                            <p class="text-4xl font-black text-slate-900">100</p>
+                        </div>
+                        <div class="bg-slate-50 p-8 rounded-3xl border border-slate-100 text-center">
+                            <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Avg. Match</p>
+                            <p class="text-4xl font-black text-indigo-600">92.4%</p>
+                        </div>
+                        <div class="bg-emerald-50 p-8 rounded-3xl border border-emerald-100 text-center">
+                            <p class="text-[10px] font-black text-emerald-600 uppercase mb-2">Status</p>
+                            <p class="text-4xl font-black text-emerald-600 uppercase">Verified</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-12">
+                        <template x-for="q in analysisResult.questions.slice(0, 10)" :key="q.id">
+                            <div class="pb-8 border-b border-slate-100 last:border-0 page-break-avoid">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-lg font-black text-indigo-900 uppercase">Q<span x-text="q.id"></span> <span class="text-slate-500 font-bold ml-2 text-base" x-text="q.title.split(' - ')[1]"></span></h4>
+                                    <p class="text-[10px] font-black text-slate-400">a: <span x-text="q.stats.discrimination"></span> | b: <span x-text="q.stats.difficulty"></span></p>
+                                </div>
+                                <p class="text-sm text-slate-700 mb-6 font-medium whitespace-pre-wrap" x-text="q.ocrText"></p>
+                                <template x-if="q.code"><pre class="p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs mb-4" x-text="q.code"></pre></template>
+                                <template x-if="q.imageUrl"><img :src="q.imageUrl" class="max-w-xs rounded-xl border border-slate-200 mb-4"></template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-32 pt-12 border-t border-slate-200 flex justify-between items-center opacity-60">
+                        <div class="text-[10px] font-black text-slate-400 uppercase">
+                            <p>Generated by AI Guard Pro Engine</p>
+                            <p>Date: <span x-text="analysisResult.date"></span></p>
+                        </div>
+                        <div class="text-center">
+                            <div class="w-48 border-b-2 border-slate-900 mb-2 mx-auto"></div>
+                            <p class="text-xs font-black text-slate-800 uppercase">Verified Sign</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </main>
+
+    <!-- Mobile Navigation -->
+    <nav class="sm:hidden bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 h-16 flex items-center justify-around z-50 no-print">
+        <button @click="activeTab = 'upload'" :class="activeTab === 'upload' ? 'text-indigo-600' : 'text-slate-400'" class="flex flex-col items-center">
+            <i data-lucide="archive" class="w-6 h-6"></i>
+            <span class="text-[10px] font-bold mt-1">업로드</span>
+        </button>
+        <button @click="analysisResult && (activeTab = 'result')" :class="activeTab === 'result' ? 'text-indigo-600' : 'text-slate-400'" :disabled="!analysisResult" class="flex flex-col items-center disabled:opacity-20">
+            <i data-lucide="brain-circuit" class="w-6 h-6"></i>
+            <span class="text-[10px] font-bold mt-1">분석 센터</span>
+        </button>
+        <button @click="analysisResult && (activeTab = 'report')" :class="activeTab === 'report' ? 'text-indigo-600' : 'text-slate-400'" :disabled="!analysisResult" class="flex flex-col items-center disabled:opacity-20">
+            <i data-lucide="file-text" class="w-6 h-6"></i>
+            <span class="text-[10px] font-bold mt-1">보고서</span>
+        </button>
+    </nav>
+</body>
+</html>
